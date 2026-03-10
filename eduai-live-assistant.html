@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduMind AI — Live Study Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f5f0;--bg2:#eeeae2;--white:#fff;
+  --ink:#181814;--ink2:#46463c;--muted:#888878;--border:#dedad0;
+  --forest:#0f3d2e;--forest2:#1a5c44;
+  --sage:#4e7d63;--sage-lt:#d8ece2;
+  --gold:#b8874a;--gold-lt:#f5ead8;
+  --red:#c94040;--red-lt:#fae4e4;
+  --r:12px;--r-lg:18px;
+  --sh:0 2px 16px rgba(15,61,46,.08);
+  --sh-lg:0 8px 36px rgba(15,61,46,.13);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:230px;background:var(--forest);
+  display:flex;flex-direction:column;flex-shrink:0;
+  overflow-y:auto;
+}
+.sb-logo{
+  padding:24px 20px 18px;
+  font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:white;
+  border-bottom:1px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;gap:8px;
+}
+.sb-logo .live{
+  font-size:10px;font-weight:600;letter-spacing:1px;
+  background:var(--gold);color:white;padding:2px 8px;border-radius:20px;
+  margin-left:auto;
+}
+.sb-section{padding:16px 16px 6px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.3);}
+.sb-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;margin:1px 8px;border-radius:9px;
+  font-size:13px;font-weight:500;color:rgba(255,255,255,.6);
+  cursor:pointer;transition:all .15s;
+}
+.sb-item:hover{background:rgba(255,255,255,.07);color:white;}
+.sb-item.active{background:rgba(255,255,255,.13);color:white;}
+.sb-item .si{font-size:15px;width:18px;text-align:center;}
+.sb-badge{margin-left:auto;background:var(--gold);color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;}
+.topic-list{padding:8px 10px;display:flex;flex-direction:column;gap:3px;}
+.topic-item{
+  font-size:12px;color:rgba(255,255,255,.5);
+  padding:7px 12px;border-radius:8px;cursor:pointer;
+  transition:all .15s;line-height:1.4;
+}
+.topic-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.85);}
+.topic-item.active{background:rgba(255,255,255,.12);color:white;}
+.sb-bottom{margin-top:auto;padding:16px 12px;border-top:1px solid rgba(255,255,255,.08);}
+.streak-pill{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:12px 14px;
+  display:flex;align-items:center;gap:10px;
+}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:rgba(247,245,240,.96);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;height:60px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;
+}
+.topbar-left{display:flex;align-items:center;gap:14px;}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:700;line-height:1.2;}
+.topbar-sub{font-size:11px;color:var(--muted);}
+.ai-status-pill{
+  display:flex;align-items:center;gap:6px;
+  background:var(--sage-lt);color:var(--forest);
+  font-size:11px;font-weight:600;
+  padding:5px 12px;border-radius:20px;
+  border:1px solid rgba(78,125,99,.2);
+}
+.ai-pulse{width:7px;height:7px;border-radius:50%;background:var(--sage);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.tb-btn{
+  padding:7px 16px;border-radius:20px;
+  font-size:12px;font-weight:600;
+  background:var(--white);border:1.5px solid var(--border);
+  color:var(--ink2);cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:6px;
+}
+.tb-btn:hover{border-color:var(--sage);color:var(--forest);}
+.tb-btn.primary{background:var(--forest);color:white;border-color:var(--forest);}
+.tb-btn.primary:hover{background:var(--forest2);}
+
+/* ── BODY ── */
+.body{flex:1;display:flex;overflow:hidden;}
+
+/* ── CHAPTER PANEL ── */
+.chapter-panel{
+  width:340px;flex-shrink:0;
+  border-right:1px solid var(--border);
+  background:var(--white);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.cp-header{
+  padding:18px 20px 14px;border-bottom:1px solid var(--border);
+}
+.cp-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;margin-bottom:4px;}
+.cp-meta{font-size:11px;color:var(--muted);}
+.cp-progress{
+  margin-top:12px;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;
+}
+.cp-fill{height:100%;background:var(--forest);border-radius:3px;width:68%;transition:width .5s;}
+.cp-tabs{
+  display:flex;border-bottom:1px solid var(--border);
+}
+.cp-tab{
+  flex:1;padding:10px 6px;text-align:center;
+  font-size:11.5px;font-weight:600;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .2s;
+}
+.cp-tab.active{color:var(--forest);border-bottom-color:var(--forest);}
+.cp-body{flex:1;overflow-y:auto;padding:16px 18px;}
+.cp-panel{display:none;}
+.cp-panel.active{display:block;}
+
+/* chapter content */
+.ch-text p{font-size:13px;line-height:1.85;color:var(--ink2);margin-bottom:14px;font-weight:300;}
+.ch-text p strong{color:var(--ink);font-weight:600;}
+.ch-text h4{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:700;margin:20px 0 8px;color:var(--forest);}
+.formula{
+  background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--forest);
+  border-radius:var(--r);padding:12px 16px;margin:12px 0;
+  font-size:13px;font-weight:600;color:var(--forest);font-family:monospace;
+}
+.bm-line{
+  cursor:pointer;border-radius:4px;padding:2px 4px;margin:-2px -4px;
+  transition:background .15s;
+}
+.bm-line:hover{background:var(--sage-lt);}
+.bm-line.marked{background:var(--gold-lt);border-left:3px solid var(--gold);padding-left:8px;}
+
+/* key points */
+.kp-list{display:flex;flex-direction:column;gap:8px;}
+.kp-item{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:10px 12px;background:var(--bg);border-radius:var(--r);
+  border:1px solid var(--border);font-size:12.5px;color:var(--ink2);line-height:1.6;
+}
+.kp-num{
+  width:22px;height:22px;border-radius:50%;background:var(--forest);color:white;
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:1px;
+}
+
+/* ── AI CHAT PANEL ── */
+.chat-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+
+/* subject selector */
+.subject-bar{
+  padding:12px 20px;background:var(--white);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.subject-label{font-size:12px;font-weight:600;color:var(--muted);}
+.subj-chip{
+  padding:6px 14px;border-radius:20px;
+  font-size:12px;font-weight:600;
+  background:var(--bg2);color:var(--ink2);border:1.5px solid var(--border);
+  cursor:pointer;transition:all .2s;
+}
+.subj-chip:hover{border-color:var(--sage);color:var(--forest);}
+.subj-chip.active{background:var(--forest);color:white;border-color:var(--forest);}
+
+/* messages */
+.messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;}
+.msg{display:flex;gap:10px;align-items:flex-start;animation:msgIn .3s ease both;}
+.msg.user{flex-direction:row-reverse;}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.msg-av{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;flex-shrink:0;margin-top:2px;
+}
+.msg:not(.user) .msg-av{background:var(--forest);color:white;font-size:15px;}
+.msg.user .msg-av{background:var(--gold);color:white;font-weight:700;font-size:13px;}
+.msg-content{max-width:75%;}
+.msg-name{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.msg.user .msg-name{text-align:right;}
+.bubble{
+  padding:12px 16px;border-radius:16px;
+  font-size:13.5px;line-height:1.7;
+}
+.msg:not(.user) .bubble{
+  background:var(--white);border:1px solid var(--border);color:var(--ink2);
+  border-radius:4px 16px 16px 16px;
+}
+.msg.user .bubble{
+  background:var(--forest);color:white;
+  border-radius:16px 4px 16px 16px;
+}
+.bubble strong{font-weight:600;}
+.bubble .formula-inline{
+  display:inline-block;background:rgba(15,61,46,.08);
+  padding:2px 8px;border-radius:6px;font-family:monospace;
+  font-size:12.5px;color:var(--forest);font-weight:600;
+}
+.msg.user .bubble .formula-inline{background:rgba(255,255,255,.15);color:white;}
+.bubble ul,.bubble ol{padding-left:18px;margin:6px 0;}
+.bubble li{margin-bottom:4px;}
+.msg-time{font-size:10px;color:var(--muted);margin-top:4px;}
+.msg.user .msg-time{text-align:right;}
+
+/* typing indicator */
+.typing-msg .bubble{background:var(--white);border:1px solid var(--border);padding:14px 18px;}
+.t-dots{display:flex;gap:4px;align-items:center;}
+.t-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:tdot 1.4s ease infinite;}
+.t-dot:nth-child(2){animation-delay:.2s;}
+.t-dot:nth-child(3){animation-delay:.4s;}
+@keyframes tdot{0%,80%,100%{transform:scale(1);opacity:.35;}40%{transform:scale(1.35);opacity:1;}}
+
+/* quick actions */
+.quick-actions{
+  padding:10px 20px;background:var(--white);border-top:1px solid var(--border);
+  display:flex;gap:7px;flex-wrap:wrap;align-items:center;
+}
+.qa-label{font-size:11px;color:var(--muted);font-weight:600;margin-right:2px;}
+.qa-btn{
+  font-size:11.5px;font-weight:600;
+  padding:6px 13px;border-radius:20px;
+  background:var(--sage-lt);color:var(--forest);
+  border:1px solid rgba(78,125,99,.2);
+  cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:5px;
+}
+.qa-btn:hover{background:var(--forest);color:white;transform:translateY(-1px);}
+
+/* input */
+.input-area{
+  padding:14px 20px;background:var(--white);
+  border-top:1px solid var(--border);
+}
+.input-row{
+  display:flex;gap:10px;align-items:flex-end;
+  background:var(--bg);border:1.5px solid var(--border);
+  border-radius:var(--r-lg);padding:10px 14px;
+  transition:border-color .2s;
+}
+.input-row:focus-within{border-color:var(--sage);}
+.msg-input{
+  flex:1;background:transparent;border:none;resize:none;
+  font-size:14px;color:var(--ink);max-height:120px;min-height:24px;
+  line-height:1.5;
+}
+.msg-input::placeholder{color:var(--muted);}
+.send-btn{
+  width:38px;height:38px;border-radius:var(--r);
+  background:var(--forest);border:none;color:white;
+  font-size:17px;cursor:pointer;flex-shrink:0;
+  transition:background .2s,transform .15s;
+  display:flex;align-items:center;justify-content:center;
+}
+.send-btn:hover{background:var(--forest2);transform:scale(1.05);}
+.send-btn:disabled{background:var(--muted);cursor:not-allowed;transform:none;}
+.input-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:8px;font-size:11px;color:var(--muted);
+}
+.char-count{font-weight:500;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:5px;}
+::-webkit-scrollbar-thumb:hover{background:var(--sage);}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:white;padding:10px 20px;border-radius:50px;
+  font-size:13px;font-weight:500;opacity:0;transition:all .3s;z-index:999;
+  pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── EMPTY STATE ── */
+.empty-state{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:40px;text-align:center;
+}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.7;}
+.empty-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;margin-bottom:8px;}
+.empty-sub{font-size:13.5px;color:var(--muted);max-width:320px;line-height:1.7;margin-bottom:24px;}
+.suggestion-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:400px;width:100%;}
+.sug-card{
+  background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:14px 16px;cursor:pointer;text-align:left;
+  transition:all .2s;
+}
+.sug-card:hover{border-color:var(--sage);transform:translateY(-2px);box-shadow:var(--sh);}
+.sug-card .sug-icon{font-size:20px;margin-bottom:6px;}
+.sug-card .sug-title{font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:3px;}
+.sug-card .sug-sub{font-size:11px;color:var(--muted);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){.chapter-panel{display:none;}.sidebar{width:56px;}.sb-item span:last-child:not(.si):not(.sb-badge){display:none;}.sb-section{display:none;}.topic-list{display:none;}.sb-bottom{display:none;}.sb-logo span:not(.si){display:none;}}
+@media(max-width:600px){.sidebar{display:none;}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      EduMind<span style="color:var(--gold)">.</span>AI
+      <span class="live">LIVE</span>
+    </div>
+
+    <div class="sb-section">Study</div>
+    <div class="sb-item active"><span class="si">🤖</span> AI Assistant <span class="sb-badge">AI</span></div>
+    <div class="sb-item"><span class="si">📚</span> My Books</div>
+    <div class="sb-item"><span class="si">📇</span> Flashcards</div>
+    <div class="sb-item"><span class="si">⏱</span> Exam Mode</div>
+
+    <div class="sb-section">Current Topics</div>
+    <div class="topic-list">
+      <div class="topic-item active" onclick="setTopic(this,'Thermodynamics','Physics · Class 11')">⚛️ Thermodynamics</div>
+      <div class="topic-item" onclick="setTopic(this,'Organic Chemistry','Chemistry · Class 12')">⚗️ Organic Chemistry</div>
+      <div class="topic-item" onclick="setTopic(this,'Cell Division','Biology · Class 12')">🧬 Cell Division</div>
+      <div class="topic-item" onclick="setTopic(this,'Integration','Maths · Class 12')">📐 Integration</div>
+      <div class="topic-item" onclick="setTopic(this,'French Revolution','History · Class 9')">🏛 French Revolution</div>
+      <div class="topic-item" onclick="setTopic(this,'Photosynthesis','Biology · Class 9')">🌿 Photosynthesis</div>
+    </div>
+
+    <div class="sb-section">Track</div>
+    <div class="sb-item"><span class="si">🏠</span> Dashboard</div>
+    <div class="sb-item"><span class="si">📊</span> Progress</div>
+    <div class="sb-item"><span class="si">⚙️</span> Settings</div>
+
+    <div class="sb-bottom">
+      <div class="streak-pill">
+        <span style="font-size:22px">🔥</span>
+        <div>
+          <div style="font-size:19px;font-weight:700;color:var(--gold);font-family:'Cormorant Garamond',serif;">14</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.45);">day streak</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="topbar-title" id="topbar-title">Thermodynamics</div>
+          <div class="topbar-sub" id="topbar-sub">Physics · Class 11 CBSE · Chapter 12</div>
+        </div>
+        <div class="ai-status-pill"><span class="ai-pulse"></span> AI Ready</div>
+      </div>
+      <div class="topbar-right">
+        <button class="tb-btn" onclick="clearChat()">🗑 Clear Chat</button>
+        <button class="tb-btn" onclick="bookmarkAll()">🔖 Bookmarks (<span id="bm-count">0</span>)</button>
+        <button class="tb-btn primary" onclick="generateQuiz()">⚡ Generate Quiz</button>
+      </div>
+    </header>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- CHAPTER PANEL -->
+      <div class="chapter-panel">
+        <div class="cp-header">
+          <div class="cp-title" id="cp-title">Thermodynamics</div>
+          <div class="cp-meta" id="cp-meta">Physics · NCERT Class 11 · Chapter 12</div>
+          <div class="cp-progress"><div class="cp-fill"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px;">
+            <span>68% complete</span><span>~15 min left</span>
+          </div>
+        </div>
+        <div class="cp-tabs">
+          <div class="cp-tab active" onclick="cpTab('read',this)">📄 Read</div>
+          <div class="cp-tab" onclick="cpTab('points',this)">✨ Key Points</div>
+        </div>
+        <div class="cp-body">
+          <div class="cp-panel active" id="cp-read">
+            <div class="ch-text" id="chapter-content">
+              <!-- Filled by JS based on topic -->
+            </div>
+          </div>
+          <div class="cp-panel" id="cp-points">
+            <div class="kp-list" id="key-points-list">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI CHAT -->
+      <div class="chat-panel">
+
+        <!-- Subject bar -->
+        <div class="subject-bar">
+          <span class="subject-label">Subject:</span>
+          <div class="subj-chip active" onclick="setSubject(this,'Physics')">⚛️ Physics</div>
+          <div class="subj-chip" onclick="setSubject(this,'Chemistry')">⚗️ Chemistry</div>
+          <div class="subj-chip" onclick="setSubject(this,'Biology')">🧬 Biology</div>
+          <div class="subj-chip" onclick="setSubject(this,'Maths')">📐 Maths</div>
+          <div class="subj-chip" onclick="setSubject(this,'History')">🏛 History</div>
+          <div class="subj-chip" onclick="setSubject(this,'General')">🌐 General</div>
+        </div>
+
+        <!-- Messages -->
+        <div class="messages" id="messages">
+          <div class="msg" id="welcome-msg">
+            <div class="msg-av">🤖</div>
+            <div class="msg-content">
+              <div class="msg-name">EduMind AI</div>
+              <div class="bubble">
+                Hey! 👋 I'm your <strong>personal AI study assistant</strong>, powered by Claude.<br><br>
+                I'm currently loaded with <strong>Thermodynamics (Chapter 12)</strong>. I can:<br>
+                • Explain any concept in simple language<br>
+                • Clear your doubts instantly<br>
+                • Create exam questions from any topic<br>
+                • Summarize chapters fast<br>
+                • Explain in Hindi or other languages<br><br>
+                <strong>Ask me anything — I'm here to help you study! 🎯</strong>
+              </div>
+              <div class="msg-time">Just now</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <span class="qa-label">Quick:</span>
+          <button class="qa-btn" onclick="quickAsk('Summarize this chapter in simple points')">✨ Summarize</button>
+          <button class="qa-btn" onclick="quickAsk('Give me all important formulas from this topic')">📐 Formulas</button>
+          <button class="qa-btn" onclick="quickAsk('Create 5 exam-style MCQ questions on this topic')">❓ Make Quiz</button>
+          <button class="qa-btn" onclick="quickAsk('What are the most important exam questions from this chapter?')">🎯 Exam Tips</button>
+          <button class="qa-btn" onclick="quickAsk('Explain this topic in simple Hindi language')">🇮🇳 हिंदी में</button>
+          <button class="qa-btn" onclick="quickAsk('I have a doubt — what is the difference between isothermal and adiabatic process?')">🤔 Clear Doubt</button>
+        </div>
+
+        <!-- Input -->
+        <div class="input-area">
+          <div class="input-row">
+            <textarea
+              class="msg-input"
+              id="msg-input"
+              placeholder="Ask anything about this chapter — a concept, doubt, formula, or ask for a summary..."
+              rows="1"
+              onkeydown="handleKey(event)"
+              oninput="autoResize(this)"
+            ></textarea>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
+          </div>
+          <div class="input-footer">
+            <span>Press <kbd style="background:var(--bg2);border:1px solid var(--border);padding:1px 5px;border-radius:4px;font-size:10px;">Enter</kbd> to send · <kbd style="background:var(--bg2);border:1px solid var(--border);padding:1px 5px;border-radius:4px;font-size:10px;">Shift+Enter</kbd> for new line</span>
+            <span class="char-count" id="char-count">0 / 500</span>
+          </div>
+        </div>
+
+      </div><!-- /chat-panel -->
+    </div><!-- /body -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════
+   TOPIC CONTENT DATA
+═══════════════════════ */
+const topicData = {
+  'Thermodynamics': {
+    meta: 'Physics · NCERT Class 11 · Chapter 12',
+    subject: 'Physics',
+    content: `
+      <h4>12.1 Introduction</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Thermodynamics</strong> is the branch of physics dealing with heat, work, temperature and their relation to energy and entropy. It governs all energy transformations in nature.</p>
+      <p class="bm-line" onclick="toggleBm(this)">A <strong>thermodynamic system</strong> is a macroscopic region under study. Everything outside it is the <strong>surroundings</strong>. Together they form the universe.</p>
+      <h4>12.2 Thermal Equilibrium & Zeroth Law</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Thermal equilibrium</strong> means two systems have the same temperature — no net heat flows between them when in contact.</p>
+      <div class="formula">Zeroth Law: If A ⇌ B and B ⇌ C, then A ⇌ C</div>
+      <h4>12.3 First Law of Thermodynamics</h4>
+      <p class="bm-line" onclick="toggleBm(this)">The First Law is <strong>conservation of energy</strong> for thermodynamic systems. Energy cannot be created or destroyed.</p>
+      <div class="formula">ΔU = Q − W</div>
+      <p class="bm-line" onclick="toggleBm(this)">where ΔU = change in internal energy, Q = heat added to system, W = work done BY the system.</p>
+      <h4>12.4 Thermodynamic Processes</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Isothermal</strong>: T = constant → ΔU = 0 → Q = W. <strong>Adiabatic</strong>: Q = 0 → ΔU = −W. <strong>Isochoric</strong>: V = constant → W = 0 → ΔU = Q. <strong>Isobaric</strong>: P = constant.</p>
+      <h4>12.5 Second Law & Entropy</h4>
+      <p class="bm-line" onclick="toggleBm(this)">Heat <strong>cannot</strong> flow spontaneously from cold to hot. <strong>Entropy (S)</strong> of an isolated system always increases or stays same — never decreases.</p>
+      <div class="formula">ΔS = Q/T &nbsp;&nbsp; and &nbsp;&nbsp; ΔS ≥ 0 (for isolated systems)</div>
+      <h4>12.6 Heat Engines & Carnot</h4>
+      <p class="bm-line" onclick="toggleBm(this)">A <strong>heat engine</strong> takes heat Q₁ from source at T₁, does work W, and rejects heat Q₂ to sink at T₂. The <strong>Carnot engine</strong> gives maximum possible efficiency.</p>
+      <div class="formula">Carnot Efficiency: η = 1 − T₂/T₁ = 1 − Q₂/Q₁</div>
+    `,
+    keyPoints: [
+      'Thermodynamics studies heat, work, and energy transformations',
+      'Zeroth Law defines temperature — basis of all thermometers',
+      'First Law: ΔU = Q − W (energy conservation)',
+      'Isothermal: ΔT=0, ΔU=0 | Adiabatic: Q=0 | Isochoric: W=0',
+      'Second Law: Entropy always increases in isolated systems',
+      'Carnot efficiency: η = 1 − T₂/T₁ (maximum possible efficiency)'
+    ]
+  },
+  'Organic Chemistry': {
+    meta: 'Chemistry · NCERT Class 12 · Unit 12',
+    subject: 'Chemistry',
+    content: `
+      <h4>Introduction to Organic Chemistry</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Organic chemistry</strong> is the study of carbon-containing compounds. Carbon's ability to form 4 bonds and chain with itself makes millions of compounds possible.</p>
+      <h4>Hybridisation</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>sp3</strong>: tetrahedral, 109.5° (alkanes). <strong>sp2</strong>: trigonal planar, 120° (alkenes, benzene). <strong>sp</strong>: linear, 180° (alkynes).</p>
+      <h4>Reaction Mechanisms</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>SN1</strong>: two-step, carbocation intermediate, racemisation. <strong>SN2</strong>: one-step, backside attack, inversion of configuration (Walden inversion).</p>
+      <div class="formula">SN2: Nu: + R-X → Nu-R + X⁻ (one step, bimolecular)</div>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Electrophilic addition</strong> on alkenes, <strong>electrophilic aromatic substitution</strong> on benzene ring (halogenation, nitration, Friedel-Crafts).</p>
+    `,
+    keyPoints: [
+      'Carbon forms 4 bonds — basis of all organic molecules',
+      'sp3 = tetrahedral, sp2 = planar, sp = linear',
+      'SN1: stepwise, carbocation, tertiary favoured',
+      'SN2: concerted, inversion, primary favoured',
+      'Markovnikov rule for addition reactions',
+      'Benzene undergoes substitution (EAS), not addition'
+    ]
+  },
+  'Cell Division': {
+    meta: 'Biology · NCERT Class 12 · Chapter 10',
+    subject: 'Biology',
+    content: `
+      <h4>Cell Cycle</h4>
+      <p class="bm-line" onclick="toggleBm(this)">The <strong>cell cycle</strong> consists of Interphase (G1, S, G2) and M-phase (mitosis/meiosis). Interphase is the longest and most active period — DNA replication occurs during S-phase.</p>
+      <h4>Mitosis</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Mitosis</strong>: equational division. 4 phases — Prophase, Metaphase, Anaphase, Telophase (PMAT). Result: 2 identical diploid cells. Purpose: growth and repair.</p>
+      <div class="formula">Mitosis: 2n → 2n + 2n (2 identical daughter cells)</div>
+      <h4>Meiosis</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Meiosis</strong>: reductional division. Two rounds: Meiosis I (reduces ploidy) + Meiosis II. Result: 4 haploid cells. Purpose: gamete formation, genetic variation.</p>
+      <div class="formula">Meiosis: 2n → n + n + n + n (4 haploid cells)</div>
+    `,
+    keyPoints: [
+      'Interphase: G1 (growth), S (DNA replication), G2 (preparation)',
+      'Mitosis: 4 phases — Prophase, Metaphase, Anaphase, Telophase',
+      'Mitosis result: 2 identical diploid (2n) daughter cells',
+      'Meiosis: 2 divisions — Meiosis I and Meiosis II',
+      'Meiosis result: 4 haploid (n) cells (gametes)',
+      'Crossing over in Meiosis I creates genetic variation'
+    ]
+  },
+  'Integration': {
+    meta: 'Mathematics · NCERT Class 12 · Chapter 7',
+    subject: 'Maths',
+    content: `
+      <h4>Introduction to Integration</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Integration</strong> is the reverse process of differentiation. It finds the area under a curve, total accumulated quantity, or the antiderivative of a function.</p>
+      <h4>Standard Integrals</h4>
+      <div class="formula">∫xⁿ dx = xⁿ⁺¹/(n+1) + C &nbsp; (n ≠ −1)</div>
+      <div class="formula">∫sin x dx = −cos x + C &nbsp;|&nbsp; ∫cos x dx = sin x + C</div>
+      <div class="formula">∫eˣ dx = eˣ + C &nbsp;|&nbsp; ∫(1/x) dx = ln|x| + C</div>
+      <h4>Integration by Parts</h4>
+      <p class="bm-line" onclick="toggleBm(this)">Used when the integrand is a product of two functions. Remember ILATE rule for choosing u: <strong>I</strong>nverse trig, <strong>L</strong>ogarithm, <strong>A</strong>lgebraic, <strong>T</strong>rigonometric, <strong>E</strong>xponential.</p>
+      <div class="formula">∫u·v dx = u·∫v dx − ∫[du/dx · ∫v dx] dx</div>
+    `,
+    keyPoints: [
+      'Integration = reverse differentiation (antiderivative)',
+      '∫xⁿ dx = xⁿ⁺¹/(n+1) + C for all n ≠ −1',
+      'Integration by parts: ILATE rule for choosing u',
+      'Definite integral gives exact area under curve',
+      '∫sin x = −cos x + C | ∫cos x = sin x + C',
+      'Substitution method: replace complex expression with u'
+    ]
+  },
+  'French Revolution': {
+    meta: 'History · NCERT Class 9 · Chapter 1',
+    subject: 'History',
+    content: `
+      <h4>Background</h4>
+      <p class="bm-line" onclick="toggleBm(this)">France in 1789 faced <strong>severe inequality</strong>. Society was divided into 3 Estates: clergy (1st), nobility (2nd), and the common people (3rd). The 3rd Estate paid all taxes but had no political power.</p>
+      <h4>Causes</h4>
+      <p class="bm-line" onclick="toggleBm(this)">Key causes: financial crisis after American War, food shortages, influence of <strong>Enlightenment ideas</strong> (Rousseau, Voltaire, Montesquieu), and the unfair tax system.</p>
+      <h4>Key Events</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>1789</strong>: Storming of the Bastille (July 14). National Assembly formed. Declaration of the Rights of Man. <strong>1793</strong>: Reign of Terror under Robespierre. <strong>1799</strong>: Napoleon takes power.</p>
+      <div class="formula">Liberty, Equality, Fraternity — motto of the French Revolution</div>
+    `,
+    keyPoints: [
+      '3 Estates: Clergy, Nobility, Common people (3rd paid all taxes)',
+      'Financial crisis + food shortage + Enlightenment = Revolution',
+      'Bastille stormed on July 14, 1789 — symbol of royal tyranny',
+      'Declaration of Rights of Man — freedom, equality, property',
+      'Reign of Terror (1793-94): mass executions under Robespierre',
+      'Napoleon Bonaparte ended the Revolution in 1799'
+    ]
+  },
+  'Photosynthesis': {
+    meta: 'Biology · NCERT Class 9 · Chapter 6',
+    subject: 'Biology',
+    content: `
+      <h4>What is Photosynthesis?</h4>
+      <p class="bm-line" onclick="toggleBm(this)"><strong>Photosynthesis</strong> is the process by which green plants convert sunlight, water, and CO₂ into glucose and oxygen. It occurs in the <strong>chloroplasts</strong>, specifically in the thylakoids and stroma.</p>
+      <div class="formula">6CO₂ + 6H₂O + Light → C₆H₁₂O₆ + 6O₂</div>
+      <h4>Light Reactions (in Thylakoids)</h4>
+      <p class="bm-line" onclick="toggleBm(this)">Light is absorbed by <strong>chlorophyll</strong>. Water is split (photolysis) releasing O₂. ATP and NADPH are produced. These are used in the Calvin Cycle.</p>
+      <h4>Calvin Cycle / Dark Reactions (in Stroma)</h4>
+      <p class="bm-line" onclick="toggleBm(this)">CO₂ is fixed using ATP and NADPH (from light reactions). <strong>RuBisCO</strong> is the key enzyme. Glucose (C₆H₁₂O₆) is the final product stored as starch.</p>
+    `,
+    keyPoints: [
+      '6CO₂ + 6H₂O + Light → C₆H₁₂O₆ + 6O₂',
+      'Occurs in chloroplasts — chlorophyll absorbs light',
+      'Light reactions: in thylakoids — produce ATP + NADPH + O₂',
+      'Dark reactions (Calvin Cycle): in stroma — produce glucose',
+      'RuBisCO is the enzyme that fixes CO₂ in Calvin Cycle',
+      'C3 plants (rice, wheat) vs C4 plants (sugarcane, maize)'
+    ]
+  }
+};
+
+let currentTopic = 'Thermodynamics';
+let currentSubject = 'Physics';
+let bookmarkCount = 0;
+let isLoading = false;
+let conversationHistory = [];
+
+/* ═══════════════════════
+   INIT
+═══════════════════════ */
+function init() {
+  loadTopic('Thermodynamics');
+  setSystemContext();
+}
+
+function setSystemContext() {
+  conversationHistory = [];
+}
+
+/* ═══════════════════════
+   TOPIC / SUBJECT
+═══════════════════════ */
+function setTopic(el, topic, meta) {
+  document.querySelectorAll('.topic-item').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadTopic(topic);
+  document.getElementById('topbar-title').textContent = topic;
+  document.getElementById('topbar-sub').textContent = meta + ' · CBSE';
+}
+
+function loadTopic(topic) {
+  currentTopic = topic;
+  const data = topicData[topic];
+  if (!data) return;
+  document.getElementById('cp-title').textContent = topic;
+  document.getElementById('cp-meta').textContent = data.meta;
+  document.getElementById('chapter-content').innerHTML = data.content;
+  const kpl = document.getElementById('key-points-list');
+  kpl.innerHTML = data.keyPoints.map((p, i) =>
+    `<div class="kp-item"><div class="kp-num">${i+1}</div><div>${p}</div></div>`
+  ).join('');
+  // set subject chip
+  document.querySelectorAll('.subj-chip').forEach(c => {
+    c.classList.toggle('active', c.textContent.trim().includes(data.subject));
+  });
+  currentSubject = data.subject;
+}
+
+function setSubject(el, subj) {
+  document.querySelectorAll('.subj-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentSubject = subj;
+}
+
+function cpTab(tab, el) {
+  document.querySelectorAll('.cp-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.cp-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('cp-' + tab).classList.add('active');
+}
+
+/* ═══════════════════════
+   BOOKMARKS
+═══════════════════════ */
+function toggleBm(el) {
+  el.classList.toggle('marked');
+  bookmarkCount = document.querySelectorAll('.bm-line.marked').length;
+  document.getElementById('bm-count').textContent = bookmarkCount;
+}
+function bookmarkAll() { showToast(`${bookmarkCount} bookmarks saved to your collection!`); }
+
+/* ═══════════════════════
+   CHAT
+═══════════════════════ */
+function getSystemPrompt() {
+  return `You are EduMind AI, a friendly and expert study assistant for students from Class 6 to competitive exams (JEE, NEET, UPSC). 
+
+The student is currently studying: ${currentTopic} (${currentSubject}).
+
+Your job:
+- Give clear, accurate, exam-focused explanations
+- Use simple language — explain like a friendly, brilliant teacher
+- Format responses with bullet points, bold key terms, and formulas where relevant
+- Keep responses focused and concise (not too long)
+- When explaining formulas, always explain what each symbol means
+- If asked in Hindi, respond in Hindi
+- Generate exam-quality MCQs when asked
+- Highlight the most important exam points
+- Be encouraging and supportive
+
+Current chapter context: ${topicData[currentTopic]?.keyPoints?.join(', ') || currentTopic}
+
+Always end with a small encouraging note or a follow-up question to keep the student engaged.`;
+}
+
+async function callClaudeAPI(userMessage) {
+  conversationHistory.push({ role: 'user', content: userMessage });
+
+  // ✅ Now calls YOUR secure backend instead of Anthropic directly
+  const response = await fetch('http://localhost:3000/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemPrompt: getSystemPrompt(),
+      messages: conversationHistory
+    })
+  });
+
+  if (!response.ok) throw new Error('Server error: ' + response.status);
+  const data = await response.json();
+  const reply = data.reply;
+  conversationHistory.push({ role: 'assistant', content: reply });
+  return reply;
+}
+
+function formatMessage(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<span class="formula-inline">$1</span>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>')
+    .replace(/• /g, '• ')
+    .replace(/^\d+\. /gm, m => m);
+}
+
+function getTime() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function addUserMessage(text) {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML += `
+    <div class="msg user">
+      <div class="msg-av">A</div>
+      <div class="msg-content">
+        <div class="msg-name">You</div>
+        <div class="bubble">${text.replace(/\n/g,'<br>')}</div>
+        <div class="msg-time">${getTime()}</div>
+      </div>
+    </div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML += `
+    <div class="msg typing-msg" id="typing-indicator">
+      <div class="msg-av">🤖</div>
+      <div class="msg-content">
+        <div class="msg-name">EduMind AI</div>
+        <div class="bubble"><div class="t-dots"><span class="t-dot"></span><span class="t-dot"></span><span class="t-dot"></span></div></div>
+      </div>
+    </div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+function addAIMessage(text) {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML += `
+    <div class="msg">
+      <div class="msg-av">🤖</div>
+      <div class="msg-content">
+        <div class="msg-name">EduMind AI</div>
+        <div class="bubble">${formatMessage(text)}</div>
+        <div class="msg-time">${getTime()}</div>
+      </div>
+    </div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function sendMessage() {
+  if (isLoading) return;
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('char-count').textContent = '0 / 500';
+
+  addUserMessage(text);
+  addTyping();
+
+  isLoading = true;
+  document.getElementById('send-btn').disabled = true;
+
+  try {
+    const reply = await callClaudeAPI(text);
+    removeTyping();
+    addAIMessage(reply);
+  } catch (err) {
+    removeTyping();
+    addAIMessage('Oops! I had trouble connecting. Please check your internet and try again. 🔄\n\n*Error: ' + err.message + '*');
+  } finally {
+    isLoading = false;
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+function quickAsk(q) {
+  document.getElementById('msg-input').value = q;
+  sendMessage();
+}
+
+async function generateQuiz() {
+  quickAsk(`Create 5 exam-style MCQ questions on ${currentTopic} with 4 options each. Mark the correct answer and give a brief explanation for each.`);
+}
+
+function clearChat() {
+  conversationHistory = [];
+  document.getElementById('messages').innerHTML = `
+    <div class="msg" id="welcome-msg">
+      <div class="msg-av">🤖</div>
+      <div class="msg-content">
+        <div class="msg-name">EduMind AI</div>
+        <div class="bubble">Chat cleared! 🧹 Ready to help you with <strong>${currentTopic}</strong>. What would you like to study?</div>
+        <div class="msg-time">${getTime()}</div>
+      </div>
+    </div>`;
+  showToast('Chat cleared!');
+}
+
+/* ═══════════════════════
+   INPUT HELPERS
+═══════════════════════ */
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  document.getElementById('char-count').textContent = el.value.length + ' / 500';
+  if (el.value.length > 500) el.value = el.value.slice(0, 500);
+}
+
+/* ═══════════════════════
+   TOAST
+═══════════════════════ */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+/* START */
+init();
+</script>
+</body>
+</html>
